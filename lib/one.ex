@@ -4,7 +4,7 @@ defmodule Advent2019.One do
     |> Enum.map(&String.trim/1)
     |> Enum.map(&String.to_integer/1)
     |> Enum.map(&Advent2019.One.calculate_fuel/1)
-    |> Enum.sum
+    |> Enum.sum()
   end
 
   @doc """
@@ -27,9 +27,9 @@ defmodule Advent2019.One do
     cond do
       fuel >= 0 ->
         fuel + calculate_fuel(fuel)
+
       true ->
         0
     end
   end
 end
-
