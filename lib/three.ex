@@ -101,9 +101,22 @@ defmodule Advent2019.Three do
     |> MapSet.to_list()
   end
 
+  @doc """
+    ## Examples
+
+    iex> Advent2019.Three.closest_intersection([{3,3}, {6,5}])
+    6
+
+  """
   def closest_intersection(intersections),
     do: intersections |> Enum.map(&manhattan_dist/1) |> Enum.min()
 
+  @doc """
+    ## Examples
+
+    iex> Advent2019.Three.manhattan_dist({3,3})
+    6
+  """
   def manhattan_dist({x,y}), do: abs(x) + abs(y)
 
   def shortest_path(path_a, path_b, intersections) do
@@ -122,13 +135,5 @@ defmodule Advent2019.Three do
         {:cont, acc + 1}
       end
     end)
-    #    Enum.reduce_while(path, %{steps: 0, prev: {0,0}}, fn {x,y} = pt, %{steps: count, prev: {prev_x,prev_y}} = acc ->
-    #  steps = count + (abs(x - prev_x) + abs(y - prev_y))  
-    #  if pt == target do
-    #    {:halt, Map.put(acc, :steps, steps)}
-    #  else
-    #    {:cont, acc |> Map.put(:steps, steps) |> Map.put(:prev, pt)}
-    #  end
-    #end) |> IO.inspect |> Map.pop(:steps)
   end
 end
