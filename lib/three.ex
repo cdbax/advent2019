@@ -1,7 +1,7 @@
 defmodule Advent2019.Three do
   def main(input_filename) do
     File.stream!(input_filename)
-    #|> calc_closest()
+    # |> calc_closest()
     |> calc_shortest()
   end
 
@@ -20,7 +20,7 @@ defmodule Advent2019.Three do
       135
   """
   def calc_closest(input) do
-    paths = 
+    paths =
       input
       |> Enum.map(&build_instructions/1)
       |> Enum.map(&calculate_path/1)
@@ -48,8 +48,9 @@ defmodule Advent2019.Three do
       |> Enum.map(&build_instructions/1)
       |> Enum.map(&calculate_path/1)
       |> Enum.map(&Enum.reverse/1)
+
     [path_a | [path_b | []]] = paths
-    intersections = find_intersections(path_a, path_b) 
+    intersections = find_intersections(path_a, path_b)
     shortest_path(path_a, path_b, intersections)
   end
 
@@ -81,8 +82,10 @@ defmodule Advent2019.Three do
   """
   def calculate_path(instructions) do
     instructions
-    |> Enum.reduce([{0,0}], fn {dir,dist}, [start|_]= acc -> route(start, dir, dist) ++ acc end)
-    |> List.delete({0,0})  
+    |> Enum.reduce([{0, 0}], fn {dir, dist}, [start | _] = acc ->
+      route(start, dir, dist) ++ acc
+    end)
+    |> List.delete({0, 0})
   end
 
   def route(start, "R", dist), do: for(x <- dist..1, do: {elem(start, 0) + x, elem(start, 1)})
@@ -117,14 +120,15 @@ defmodule Advent2019.Three do
     iex> Advent2019.Three.manhattan_dist({3,3})
     6
   """
-  def manhattan_dist({x,y}), do: abs(x) + abs(y)
+  def manhattan_dist({x, y}), do: abs(x) + abs(y)
 
   def shortest_path(path_a, path_b, intersections) do
     Enum.map(intersections, fn target ->
       dist_a = distance_to_point(path_a, target)
       dist_b = distance_to_point(path_b, target)
       dist_a + dist_b
-    end) |> Enum.min()
+    end)
+    |> Enum.min()
   end
 
   def distance_to_point(path, target) do
