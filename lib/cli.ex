@@ -12,6 +12,8 @@ defmodule Advent2019.CLI do
       "2.1" ->
         IO.inspect(Advent2019.Two.reverse_search(19_690_720, "input_two.txt"))
 
+      "3" ->
+        IO.inspect(Advent2019.Three.main("input_three.txt"))
       _ ->
         IO.puts("Day not implemented")
     end
