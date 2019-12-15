@@ -56,47 +56,56 @@ defmodule Advent2019.Seven do
 
   def amplifier({a, b, c, d, e}, program, init_value) do
     me = self()
-    amp_e = spawn(fn -> Intcode.run(program, 0, me) end)
-    amp_d = spawn(fn -> Intcode.run(program, 0, amp_e) end)
-    amp_c = spawn(fn -> Intcode.run(program, 0, amp_d) end)
-    amp_b = spawn(fn -> Intcode.run(program, 0, amp_c) end)
-    amp_a = spawn(fn -> Intcode.run(program, 0, amp_b) end)
-    send(amp_e, {:input, e})
-    send(amp_d, {:input, d})
-    send(amp_c, {:input, c})
-    send(amp_b, {:input, b})
-    send(amp_a, {:input, a})
-    send(amp_a, {:input, init_value})
+    amp_e = spawn(fn -> Intcode.run(program, me) end)
+    amp_d = spawn(fn -> Intcode.run(program, amp_e) end)
+    amp_c = spawn(fn -> Intcode.run(program, amp_d) end)
+    amp_b = spawn(fn -> Intcode.run(program, amp_c) end)
+    amp_a = spawn(fn -> Intcode.run(program, amp_b) end)
+    send(amp_e, e)
+    send(amp_d, d)
+    send(amp_c, c)
+    send(amp_b, b)
+    send(amp_a, a)
+    send(amp_a, init_value)
 
+    check(nil)
+  end
+
+  def check(last) do
     receive do
-      x -> x
+      {:halt, _} ->
+        last
+
+      inp ->
+        IO.puts(inp)
+        check(inp)
     end
   end
 
   def amplifier_loop({a, b, c, d, e}, program, init_value) do
     me = self()
-    amp_e = spawn(fn -> Intcode.run(program, 0, me) end)
-    amp_d = spawn(fn -> Intcode.run(program, 0, amp_e) end)
-    amp_c = spawn(fn -> Intcode.run(program, 0, amp_d) end)
-    amp_b = spawn(fn -> Intcode.run(program, 0, amp_c) end)
-    amp_a = spawn(fn -> Intcode.run(program, 0, amp_b) end)
-    send(amp_e, {:input, e})
-    send(amp_d, {:input, d})
-    send(amp_c, {:input, c})
-    send(amp_b, {:input, b})
-    send(amp_a, {:input, a})
-    send(amp_a, {:input, init_value})
-    check(nil, amp_a)
+    amp_e = spawn(fn -> Intcode.run(program, me) end)
+    amp_d = spawn(fn -> Intcode.run(program, amp_e) end)
+    amp_c = spawn(fn -> Intcode.run(program, amp_d) end)
+    amp_b = spawn(fn -> Intcode.run(program, amp_c) end)
+    amp_a = spawn(fn -> Intcode.run(program, amp_b) end)
+    send(amp_e, e)
+    send(amp_d, d)
+    send(amp_c, c)
+    send(amp_b, b)
+    send(amp_a, a)
+    send(amp_a, init_value)
+    check_forward(nil, amp_a)
   end
 
-  def check(last, forward_to) do
+  def check_forward(last, forward_to) do
     receive do
-      {:input, inp} ->
-        send(forward_to, {:input, inp})
-        check(inp, forward_to)
-
       {:halt, _} ->
         last
+
+      inp ->
+        send(forward_to, inp)
+        check_forward(inp, forward_to)
     end
   end
 end
