@@ -33,6 +33,9 @@ defmodule Advent2019.CLI do
       "8" ->
         IO.inspect(Advent2019.Eight.main("input_eight.txt"))
 
+      "9" ->
+        IO.inspect(Advent2019.Nine.main("input_nine.txt"))
+
       _ ->
         IO.puts("Day not implemented")
     end
