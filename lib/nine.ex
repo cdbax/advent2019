@@ -11,20 +11,19 @@ defmodule Advent2019.Nine do
 
   def boost(program) do
     me = self()
-    cpu = spawn(fn -> Intcode.run(program, 0, me) end)
-    # send(cpu, {:input, 1})
-    send(cpu, {:input, 1})
+    cpu = spawn(fn -> Intcode.run(program, me) end)
+    send(cpu, 2)
     check_output(nil)
   end
 
   def check_output(last) do
     receive do
-      {:input, inp} ->
-        IO.puts(inp)
-        check_output(inp)
-
       {:halt, _} ->
         last
+
+      inp ->
+        IO.puts(inp)
+        check_output(inp)
     end
   end
 end

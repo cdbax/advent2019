@@ -19,118 +19,195 @@ defmodule Advent2019.Intcode do
     iex> Advent2019.Intcode.run([1,9,10,3,2,3,11,0,99,30,40,50], 0, self())
     {:halt, [3500,9,10,70,2,3,11,0,99,30,40,50]}
   """
-  def run(memory, address, receiver, rel_base \\ 0) do
-    [opcode | _] = Enum.drop(memory, address)
-    address = address + 1
+  def run(memory, receiver) do
+    memory
+    |> Enum.with_index()
+    |> Enum.map(fn {value, index} -> {index, value} end)
+    |> Map.new()
+    |> (&Map.put(%{}, :memory, &1)).()
+    |> Map.put(:address, 0)
+    |> Map.put(:receiver, receiver)
+    |> Map.put(:rel_base, 0)
+    |> execute()
 
-    case process(parse_opcode(opcode), memory, address, rel_base) do
-      {:halt, memory} ->
-        send(receiver, {:halt, memory})
+    # [opcode | _] = Enum.drop(memory, address)
+    # address = address + 1
 
-      {:input, memory, address, mode, rel_base} ->
-        handle_input(memory, address, get_input(), receiver, mode, rel_base)
+    # case process(parse_opcode(opcode), memory, address, rel_base) do
+    #   {:halt, memory} ->
+    #     send(receiver, {:halt, memory})
 
-      {:output, memory, address, output} ->
-        send(receiver, {:input, output})
-        run(memory, address, receiver, rel_base)
+    #   {:input, memory, address, mode, rel_base} ->
+    #     handle_input(memory, address, get_input(), receiver, mode, rel_base)
 
-      {:continue, memory, address, rel_base} ->
-        run(memory, address, receiver, rel_base)
+    #   {:output, memory, address, output} ->
+    #     send(receiver, {:input, output})
+    #     run(memory, address, receiver, rel_base)
+
+    #   {:continue, memory, address, rel_base} ->
+    #     run(memory, address, receiver, rel_base)
+    # end
+  end
+
+  def execute(state) do
+    opcode = Map.get(state.memory, state.address)
+    state = put_in(state.address, state.address + 1)
+
+    case process(parse_opcode(opcode), state) do
+      {:halt, state} ->
+        send(state.receiver, {:halt, state})
+
+      {:input, state, mode} ->
+        handle_input(state, mode, get_input())
+
+      {:output, state, output} ->
+        send(state.receiver, output)
+        execute(state)
+
+      {:continue, state} ->
+        execute(state)
     end
   end
 
-  def process({_, _, _, 99}, memory, _address, _rel_base), do: {:halt, memory}
+  def process({_, _, _, 99}, state), do: {:halt, state}
 
-  def process({mode_3, mode_2, mode_1, 1}, memory, address, rel_base) do
-    [param_1, param_2, dest | _] = Enum.drop(memory, address)
+  def process({mode_3, mode_2, mode_1, 1}, state) do
+    param_1 = Map.fetch!(state.memory, state.address)
+    param_2 = Map.fetch!(state.memory, state.address + 1)
+    dest = Map.fetch!(state.memory, state.address + 2)
 
     value =
-      read_mem(memory, mode_1, param_1, rel_base) + read_mem(memory, mode_2, param_2, rel_base)
+      read_mem(state.memory, mode_1, param_1, state.rel_base) +
+        read_mem(state.memory, mode_2, param_2, state.rel_base)
 
-    new_memory = write_mem(memory, mode_3, dest, value, rel_base)
+    new_memory = write_mem(state.memory, mode_3, dest, value, state.rel_base)
 
-    {:continue, new_memory, address + 3, rel_base}
+    new_state =
+      state
+      |> Map.put(:memory, new_memory)
+      |> Map.put(:address, state.address + 3)
+
+    {:continue, new_state}
   end
 
-  def process({mode_3, mode_2, mode_1, 2}, memory, address, rel_base) do
-    [param_1, param_2, dest | _] = Enum.drop(memory, address)
+  def process({mode_3, mode_2, mode_1, 2}, state) do
+    param_1 = Map.fetch!(state.memory, state.address)
+    param_2 = Map.fetch!(state.memory, state.address + 1)
+    dest = Map.fetch!(state.memory, state.address + 2)
 
     value =
-      read_mem(memory, mode_1, param_1, rel_base) * read_mem(memory, mode_2, param_2, rel_base)
+      read_mem(state.memory, mode_1, param_1, state.rel_base) *
+        read_mem(state.memory, mode_2, param_2, state.rel_base)
 
-    new_memory = write_mem(memory, mode_3, dest, value, rel_base)
+    new_memory = write_mem(state.memory, mode_3, dest, value, state.rel_base)
 
-    {:continue, new_memory, address + 3, rel_base}
+    new_state =
+      state
+      |> Map.put(:memory, new_memory)
+      |> Map.put(:address, state.address + 3)
+
+    {:continue, new_state}
   end
 
-  def process({_, _, mode, 3}, memory, address, rel_base) do
-    {:input, memory, address, mode, rel_base}
+  def process({_, _, mode, 3}, state) do
+    {:input, state, mode}
   end
 
-  def process({_, _, mode, 4}, memory, address, rel_base) do
-    [param | _] = Enum.drop(memory, address)
+  def process({_, _, mode, 4}, state) do
+    param = Map.fetch!(state.memory, state.address)
 
-    output = read_mem(memory, mode, param, rel_base)
+    output = read_mem(state.memory, mode, param, state.rel_base)
 
-    {:output, memory, address + 1, output}
+    new_state =
+      state
+      |> Map.put(:address, state.address + 1)
+
+    {:output, new_state, output}
   end
 
-  def process({_, mode_2, mode_1, 5}, memory, address, rel_base) do
-    [param_1, param_2 | _] = Enum.drop(memory, address)
+  def process({_, mode_2, mode_1, 5}, state) do
+    param_1 = Map.fetch!(state.memory, state.address)
+    param_2 = Map.fetch!(state.memory, state.address + 1)
 
-    if read_mem(memory, mode_1, param_1, rel_base) != 0 do
-      jump = read_mem(memory, mode_2, param_2, rel_base)
-      {:continue, memory, jump, rel_base}
+    if read_mem(state.memory, mode_1, param_1, state.rel_base) != 0 do
+      jump = read_mem(state.memory, mode_2, param_2, state.rel_base)
+      new_state = Map.put(state, :address, jump)
+      {:continue, new_state}
     else
-      {:continue, memory, address + 2, rel_base}
+      new_state = Map.put(state, :address, state.address + 2)
+      {:continue, new_state}
     end
   end
 
-  def process({_, mode_2, mode_1, 6}, memory, address, rel_base) do
-    [param_1, param_2 | _] = Enum.drop(memory, address)
+  def process({_, mode_2, mode_1, 6}, state) do
+    param_1 = Map.fetch!(state.memory, state.address)
+    param_2 = Map.fetch!(state.memory, state.address + 1)
 
-    if read_mem(memory, mode_1, param_1, rel_base) == 0 do
-      jump = read_mem(memory, mode_2, param_2, rel_base)
-      {:continue, memory, jump, rel_base}
+    if read_mem(state.memory, mode_1, param_1, state.rel_base) == 0 do
+      jump = read_mem(state.memory, mode_2, param_2, state.rel_base)
+      new_state = Map.put(state, :address, jump)
+      {:continue, new_state}
     else
-      {:continue, memory, address + 2, rel_base}
+      new_state = Map.put(state, :address, state.address + 2)
+      {:continue, new_state}
     end
   end
 
-  def process({mode_3, mode_2, mode_1, 7}, memory, address, rel_base) do
-    [param_1, param_2, param_3 | _] = Enum.drop(memory, address)
+  def process({mode_3, mode_2, mode_1, 7}, state) do
+    param_1 = Map.fetch!(state.memory, state.address)
+    param_2 = Map.fetch!(state.memory, state.address + 1)
+    param_3 = Map.fetch!(state.memory, state.address + 2)
 
     new_memory =
-      if read_mem(memory, mode_1, param_1, rel_base) < read_mem(memory, mode_2, param_2, rel_base) do
-        write_mem(memory, mode_3, param_3, 1, rel_base)
+      if read_mem(state.memory, mode_1, param_1, state.rel_base) <
+           read_mem(state.memory, mode_2, param_2, state.rel_base) do
+        write_mem(state.memory, mode_3, param_3, 1, state.rel_base)
       else
-        write_mem(memory, mode_3, param_3, 0, rel_base)
+        write_mem(state.memory, mode_3, param_3, 0, state.rel_base)
       end
 
-    {:continue, new_memory, address + 3, rel_base}
+    new_state =
+      state
+      |> Map.put(:memory, new_memory)
+      |> Map.put(:address, state.address + 3)
+
+    {:continue, new_state}
   end
 
-  def process({mode_3, mode_2, mode_1, 8}, memory, address, rel_base) do
-    [param_1, param_2, param_3 | _] = Enum.drop(memory, address)
+  def process({mode_3, mode_2, mode_1, 8}, state) do
+    param_1 = Map.fetch!(state.memory, state.address)
+    param_2 = Map.fetch!(state.memory, state.address + 1)
+    param_3 = Map.fetch!(state.memory, state.address + 2)
 
     new_memory =
-      if read_mem(memory, mode_1, param_1, rel_base) ==
-           read_mem(memory, mode_2, param_2, rel_base) do
-        write_mem(memory, mode_3, param_3, 1, rel_base)
+      if read_mem(state.memory, mode_1, param_1, state.rel_base) ==
+           read_mem(state.memory, mode_2, param_2, state.rel_base) do
+        write_mem(state.memory, mode_3, param_3, 1, state.rel_base)
       else
-        write_mem(memory, mode_3, param_3, 0, rel_base)
+        write_mem(state.memory, mode_3, param_3, 0, state.rel_base)
       end
 
-    {:continue, new_memory, address + 3, rel_base}
+    new_state =
+      state
+      |> Map.put(:memory, new_memory)
+      |> Map.put(:address, state.address + 3)
+
+    {:continue, new_state}
   end
 
-  def process({_, _, mode, 9}, memory, address, rel_base) do
-    [param | _] = Enum.drop(memory, address)
-    change = read_mem(memory, mode, param, rel_base)
-    {:continue, memory, address + 1, rel_base + change}
+  def process({_, _, mode, 9}, state) do
+    param = Map.fetch!(state.memory, state.address)
+    change = read_mem(state.memory, mode, param, state.rel_base)
+
+    new_state =
+      state
+      |> Map.put(:address, state.address + 1)
+      |> Map.put(:rel_base, state.rel_base + change)
+
+    {:continue, new_state}
   end
 
-  def process(wat, _, _, _), do: raise("Unknown OpCode #{Kernel.inspect(wat)}")
+  def process(wat, _), do: raise("Unknown OpCode #{Kernel.inspect(wat)}")
 
   def read_mem(memory, mode, param, rel_base) do
     case mode do
@@ -149,13 +226,7 @@ defmodule Advent2019.Intcode do
   end
 
   def read_at(memory, position) when position >= 0 do
-    case Enum.at(memory, position) do
-      nil ->
-        0
-
-      val ->
-        val
-    end
+    Map.get(memory, position, 0)
   end
 
   @doc """
@@ -191,18 +262,7 @@ defmodule Advent2019.Intcode do
     [1,1,1,0,0,1]
   """
   def write_at(memory, dest, value) when dest >= 0 do
-    case Enum.count(memory) < dest do
-      false ->
-        List.replace_at(memory, dest, value)
-
-      true ->
-        (memory ++ List.duplicate(0, dest - Enum.count(memory) + 1))
-        |> List.replace_at(dest, value)
-    end
-  end
-
-  def expand_mem(memory, target) do
-    memory ++ List.duplicate(0, target - Enum.count(memory) + 1)
+    Map.put(memory, dest, value)
   end
 
   @doc """
@@ -227,16 +287,21 @@ defmodule Advent2019.Intcode do
 
   def get_input() do
     receive do
-      {:input, input} ->
+      input ->
         input
     end
   end
 
-  def handle_input(memory, address, input, receiver, mode, rel_base) do
-    [param | _] = Enum.drop(memory, address)
+  def handle_input(state, mode, input) do
+    param = Map.fetch!(state.memory, state.address)
 
-    new_memory = write_mem(memory, mode, param, input, rel_base)
+    new_memory = write_mem(state.memory, mode, param, input, state.rel_base)
 
-    run(new_memory, address + 1, receiver, rel_base)
+    new_state =
+      state
+      |> Map.put(:memory, new_memory)
+      |> Map.put(:address, state.address + 1)
+
+    execute(new_state)
   end
 end
